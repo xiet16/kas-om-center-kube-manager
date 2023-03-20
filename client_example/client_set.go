@@ -1,4 +1,4 @@
-package clients
+package client_example
 
 import (
 	"bytes"
