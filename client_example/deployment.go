@@ -2,6 +2,7 @@ package client_example
 
 import (
 	"context"
+	"fmt"
 	appsV1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,11 +19,13 @@ type DeploymentManager struct {
 }
 
 func NewDeploymentManager() *DeploymentManager {
-	return &DeploymentManager{}
+	return &DeploymentManager{
+		Client: createDeployClient(),
+	}
 }
 
-func (dm *DeploymentManager) createClient() {
-	config, err := clientcmd.BuildConfigFromFlags("", "./config_files")
+func createDeployClient() appsResV1.DeploymentInterface {
+	config, err := clientcmd.BuildConfigFromFlags("", configPath)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -33,13 +36,10 @@ func (dm *DeploymentManager) createClient() {
 	}
 
 	deployClient := clientSet.AppsV1().Deployments(corev1.NamespaceDefault)
-	dm.Client = deployClient
+	return deployClient
 }
 
 func (dm *DeploymentManager) Create() {
-	if dm.Client == nil {
-		dm.createClient()
-	}
 	relicas := int32(2)
 	deploy := appsV1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -122,14 +122,65 @@ func (dm *DeploymentManager) ListDeploy() {
 	}
 }
 
-func (dm *DeploymentManager) DeleteDeploy() {
+func (dm *DeploymentManager) DeleteDeploy(deployName string) {
 	klog.Info("DeleteDeploy...........")
 	// 删除策略
 	deletePolicy := metav1.DeletePropagationForeground
-	err := dm.Client.Delete(context.Background(), "deploy-nginx-demo", metav1.DeleteOptions{PropagationPolicy: &deletePolicy})
+	err := dm.Client.Delete(context.Background(), deployName, metav1.DeleteOptions{PropagationPolicy: &deletePolicy})
 	if err != nil {
 		klog.Errorf("delete deployment error, err:%v", err)
 	} else {
 		klog.Info("delete deployment success")
 	}
+}
+
+func (dm *DeploymentManager) CreateDemoDeploy(serverName, ver string) {
+	relicas := int32(3)
+	deploy := appsV1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "apps/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("deploy-%s", serverName),
+			Namespace: corev1.NamespaceDefault,
+		},
+		Spec: appsV1.DeploymentSpec{
+			Replicas: &relicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": serverName,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: serverName,
+					Labels: map[string]string{
+						"app": serverName,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            serverName,
+							Image:           fmt.Sprintf("%s:%s", serverName, ver),
+							ImagePullPolicy: corev1.PullNever, //使用本地镜像
+							Ports: []corev1.ContainerPort{
+								{
+									Protocol:      corev1.ProtocolTCP,
+									ContainerPort: serverPort,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dt, err := dm.Client.Create(context.Background(), &deploy, metav1.CreateOptions{})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	log.Println("create deployment suc :", dt.Name)
 }

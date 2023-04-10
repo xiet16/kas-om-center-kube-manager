@@ -12,9 +12,12 @@ import (
 	"text/template"
 )
 
-func CreatePod() {
+func GetPod(namespace string) {
+	if namespace == "" {
+		namespace = "default"
+	}
 	//加载配置
-	config, err := clientcmd.BuildConfigFromFlags("", "./conf/config")
+	config, err := clientcmd.BuildConfigFromFlags("", "./k8s_config/config")
 	if err != nil {
 		panic(err)
 	}
@@ -26,7 +29,7 @@ func CreatePod() {
 	}
 
 	//对资源对象进行操作
-	podList, err := clientSet.CoreV1().Pods("dev").List(context.Background(), metaV1.ListOptions{})
+	podList, err := clientSet.CoreV1().Pods(namespace).List(context.Background(), metaV1.ListOptions{})
 	if err != nil {
 		log.Printf("list pods error:%v\n", err)
 		return
@@ -37,7 +40,7 @@ func CreatePod() {
 }
 
 func CreateNginxPod() {
-	config, err := clientcmd.BuildConfigFromFlags("", "./config_files/config")
+	config, err := clientcmd.BuildConfigFromFlags("", "./k8s_config/config")
 	if err != nil {
 		panic(err)
 	}
@@ -83,6 +86,22 @@ func CreateNginxPod() {
 		return
 	}
 	log.Printf("create pod success\n")
+}
+
+func DeletePod() {
+	config, err := clientcmd.BuildConfigFromFlags("", "./k8s_config/config")
+	if err != nil {
+		panic(err)
+	}
+	clientSet, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err)
+	}
+	err = clientSet.CoreV1().Pods("default").Delete(context.Background(), "nginx", metaV1.DeleteOptions{})
+	if err != nil {
+		panic(err)
+	}
+	log.Println("delete pod success")
 }
 
 func CreatePodByTemplate() {
