@@ -5,7 +5,8 @@
 4. 查看pod的标签用命令 kubectl get pods --show-labels
 5. service 和pod 是一对多关系，并不会直接耦合
 6. service 的三种方式及原理
-7. ingress 待续
+7. minikube service service-name --url 可以开启minikube 的监听
+8. ingress 待续
 
 
 ## 相关url
